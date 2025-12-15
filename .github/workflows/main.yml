@@ -31,7 +31,7 @@ jobs:
       - name: Création du fichier .env
         run: |
           echo "DOCKER_USER=${{ secrets.DOCKER_USER }}" >> .env
-          echo "DOCKER_PASS=${{ secrets.DOCKER_PASS }}" >> TD/.env
+          echo "DOCKER_PASS=${{ secrets.DOCKER_PASS }}" >> .env
           echo "DB_USER=${{ secrets.DB_USER }}" >> .env
           echo "DB_PASS=${{ secrets.DB_PASS }}" >> .env
           echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
