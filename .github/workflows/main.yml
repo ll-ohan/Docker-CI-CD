@@ -1,0 +1,60 @@
+name: Pipeline CI/CD TD
+
+# Déclencheurs :
+# 1. Sur Pull Request vers main : Exécution "dans le vide" pour validation
+# 2. Sur Push vers main : Exécution réelle pour déploiement final (après merge)
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  validate-and-deploy:
+    runs-on: ubuntu-latest
+
+    # Service Postgres optionnel ici car votre docker-compose s'en occupe déjà,
+    # mais on utilise un runner standard Ubuntu qui a Docker pré-installé.
+
+    steps:
+      # 1. Récupération du code
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      # 2. Configuration de l'environnement Docker (Buildx pour les builds avancés)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 3. Génération du fichier .env dynamique
+      # Vos scripts (run_safety.sh, compose.yml, etc.) dépendent d'un fichier .env
+      # Nous le recréons à la volée à partir des secrets GitHub pour ne pas le commiter.
+      - name: Création du fichier .env
+        run: |
+          echo "DOCKER_USER=${{ secrets.DOCKER_USER }}" >> TD/.env
+          echo "DOCKER_PASS=${{ secrets.DOCKER_PASS }}" >> TD/.env
+          echo "DB_USER=${{ secrets.DB_USER }}" >> TD/.env
+          echo "DB_PASS=${{ secrets.DB_PASS }}" >> TD/.env
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> TD/.env
+          # Variables pour la signature Docker Content Trust (DCT)
+          echo "DOCKER_CONTENT_TRUST_ROOT_PASSPHRASE=${{ secrets.DCT_ROOT_PASS }}" >> TD/.env
+          echo "DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE=${{ secrets.DCT_REPO_PASS }}" >> TD/.env
+
+          # Variables pour le frontend
+          echo "FRONTEND_PORT=8080" >> TD/.env
+
+      # 4. Exécution du Script Maître (deploy.sh)
+      # Ce script lance séquentiellement : Tests -> Sécurité -> Build/Push -> Up
+      - name: Exécution de deploy.sh (Pipeline Complet)
+        working-directory: ./TD
+        run: |
+          # Rendre les scripts exécutables
+          chmod +x *.sh image_optimization/*.sh
+
+          # Lancement du déploiement
+          ./deploy.sh
+
+      # 5. Nettoyage (Optionnel, GitHub le fait automatiquement, mais bonne pratique)
+      - name: Arrêt des conteneurs
+        if: always()
+        working-directory: ./TD
+        run: docker compose down
