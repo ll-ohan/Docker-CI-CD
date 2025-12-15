@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Conteneurisée - Liste des Items</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header>
+        <div class="container header-content">
+            <h1>📦 Gestionnaire d'Items</h1>
+            <div id="api-status" class="status-badge loading">
+                <span class="status-dot"></span>
+                <span id="status-text">Connexion...</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="add-item-section">
+            <h2>Ajouter un nouvel item</h2>
+            <form id="add-item-form" class="item-form">
+                <div class="form-group">
+                    <input type="text" id="item-name" placeholder="Nom de l'item" required>
+                </div>
+                <div class="form-group">
+                    <input type="text" id="item-desc" placeholder="Description (optionnelle)">
+                </div>
+                <button type="submit" class="btn-primary">Ajouter</button>
+            </form>
+        </section>
+
+        <hr class="divider">
+
+        <section id="items-container" class="items-grid">
+            <div class="loader">Chargement des données...</div>
+        </section>
+    </main>
+
+    <footer>
+        <p>TP Conteneurisation - <span id="year"></span></p>
+    </footer>
+    <script src="env-config.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>

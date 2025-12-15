@@ -1,0 +1,76 @@
+services:
+  db:
+    image: postgres:alpine # Image alpine pour la légèreté
+
+    # Injection des variables d'environnement définies dans le fichier .env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    # Gestion des volumes pour la persistance et l'initialisation
+    volumes:
+      - db_data:/var/lib/postgresql/data # Persistance des données via un volume nommé
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro # Montage du script SQL pour l'exécution automatique au démarrage
+    # Vérification de l'état de santé du service (HealthCheck)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    networks: # Réseau interne pour isoler la communication
+      - internal_network
+
+    restart: unless-stopped # Redémarrage automatique sauf arrêt manuel
+  # Service API (Backend)
+  api:
+    build:
+      context: ./api
+    image: ${DOCKER_USER}/tdocker-api:latest
+    # Injection des variables pour la connexion DB
+    environment:
+      DB_HOST: db
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+    # S'assure que la DB est "healthy" avant de lancer l'API
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 5s
+    networks:
+      - internal_network
+    restart: unless-stopped
+
+  # Service Frontend (Nginx)
+  front:
+    build:
+      context: ./frontend
+    image: ${DOCKER_USER}/tdfront-front:latest
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    ports:
+      - "${FRONTEND_PORT}:8080" # Exposition du port HTTP standard
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - internal_network
+    restart: unless-stopped
+
+# Déclaration du volume nommé
+volumes:
+  db_data:
+
+# Déclaration du réseau
+networks:
+  internal_network:
+    driver: bridge
