@@ -56,5 +56,5 @@ jobs:
       # 5. Nettoyage (Optionnel, GitHub le fait automatiquement, mais bonne pratique)
       - name: Arrêt des conteneurs
         if: always()
-        working-directory: ./TD
+        working-directory: ./
         run: docker compose down
