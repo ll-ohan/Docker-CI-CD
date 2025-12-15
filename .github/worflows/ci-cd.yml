@@ -13,7 +13,7 @@ jobs:
   validate-and-deploy:
     runs-on: ubuntu-latest
 
-    # Service Postgres optionnel ici car votre docker-compose s'en occupe déjà,
+    # Service Pos tgres optionnel ici car votre docker-compose s'en occupe déjà,
     # mais on utilise un runner standard Ubuntu qui a Docker pré-installé.
 
     steps:
