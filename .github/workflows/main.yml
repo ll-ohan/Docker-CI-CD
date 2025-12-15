@@ -30,22 +30,22 @@ jobs:
       # Nous le recréons à la volée à partir des secrets GitHub pour ne pas le commiter.
       - name: Création du fichier .env
         run: |
-          echo "DOCKER_USER=${{ secrets.DOCKER_USER }}" >> TD/.env
+          echo "DOCKER_USER=${{ secrets.DOCKER_USER }}" >> .env
           echo "DOCKER_PASS=${{ secrets.DOCKER_PASS }}" >> TD/.env
-          echo "DB_USER=${{ secrets.DB_USER }}" >> TD/.env
-          echo "DB_PASS=${{ secrets.DB_PASS }}" >> TD/.env
-          echo "DB_NAME=${{ secrets.DB_NAME }}" >> TD/.env
+          echo "DB_USER=${{ secrets.DB_USER }}" >> .env
+          echo "DB_PASS=${{ secrets.DB_PASS }}" >> .env
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
           # Variables pour la signature Docker Content Trust (DCT)
-          echo "DOCKER_CONTENT_TRUST_ROOT_PASSPHRASE=${{ secrets.DCT_ROOT_PASS }}" >> TD/.env
-          echo "DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE=${{ secrets.DCT_REPO_PASS }}" >> TD/.env
+          echo "DOCKER_CONTENT_TRUST_ROOT_PASSPHRASE=${{ secrets.DCT_ROOT_PASS }}" >> .env
+          echo "DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE=${{ secrets.DCT_REPO_PASS }}" >> .env
 
           # Variables pour le frontend
-          echo "FRONTEND_PORT=8080" >> TD/.env
+          echo "FRONTEND_PORT=8080" >> .env
 
       # 4. Exécution du Script Maître (deploy.sh)
       # Ce script lance séquentiellement : Tests -> Sécurité -> Build/Push -> Up
       - name: Exécution de deploy.sh (Pipeline Complet)
-        working-directory: ./TD
+        working-directory: ./
         run: |
           # Rendre les scripts exécutables
           chmod +x *.sh image_optimization/*.sh
