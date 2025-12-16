@@ -4,46 +4,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Application Conteneurisée - Liste des Items</title>
+    <title>Docker Desktop Clone</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
-    <header>
-        <div class="container header-content">
-            <h1>📦 Gestionnaire d'Items</h1>
-            <div id="api-status" class="status-badge loading">
-                <span class="status-dot"></span>
-                <span id="status-text">Connexion...</span>
+    <div class="app-shell">
+
+        <header class="top-header">
+            <div class="logo-area">
+                <img src="assets/logo.svg" alt="Docker" class="docker-logo-white">
             </div>
+
+            <div class="header-search">
+                <img src="assets/search.svg" alt="Search" class="search-icon-img">
+                <input type="text" id="app-search" placeholder="Search" class="search-input">
+                <span class="shortcut-hint">Ctrl K</span>
+            </div>
+
+            <div class="header-actions">
+                <div class="icon-btn">
+                    <img src="assets/settings.svg" alt="Settings" class="settings-icon">
+                </div>
+                <div class="avatar-circle">L</div>
+            </div>
+        </header>
+
+        <div class="main-body">
+            <aside class="sidebar">
+                <nav class="nav-menu">
+                    <a href="#" class="nav-item active">
+                        <img src="assets/containers.svg" alt="" class="nav-icon">
+                        Containers
+                    </a>
+                    <a href="#" class="nav-item">
+                        <img src="assets/images.svg" alt="" class="nav-icon">
+                        Images
+                    </a>
+                    <a href="#" class="nav-item">
+                        <img src="assets/volumes.svg" alt="" class="nav-icon">
+                        Volumes
+                    </a>
+                    <div class="nav-divider"></div>
+                    <a href="#" class="nav-item">
+                        <img src="assets/build.svg" alt="" class="nav-icon">
+                        Builds
+                    </a>
+                    <a href="#" class="nav-item">
+                        <img src="assets/extensions.svg" alt="" class="nav-icon">
+                        Extensions
+                    </a>
+                </nav>
+            </aside>
+
+            <main class="content-wrapper">
+                <div class="content-header">
+                    <h2>Containers</h2>
+                    <div class="header-buttons">
+                        <button class="btn-text">Give feedback</button>
+                    </div>
+                </div>
+
+                <section class="action-bar">
+                    <form id="add-item-form" class="inline-create-form">
+                        <input type="text" id="item-name" class="docker-input" placeholder="Name" required>
+                        <input type="text" id="item-desc" class="docker-input" placeholder="Image / Tag">
+                        <button type="submit" class="btn-play">
+                            ▶ Run
+                        </button>
+                    </form>
+                </section>
+
+                <div class="grid-header">
+                    <span class="col-check"><input type="checkbox"></span>
+                    <span class="col-status"></span>
+                    <span class="col-name">Name</span>
+                    <span class="col-img">Image</span>
+                    <span class="col-port">Port(s)</span>
+                    <span class="col-created">Created</span>
+                    <span class="col-actions">Actions</span>
+                </div>
+
+                <div id="items-container" class="items-list">
+                    <div class="loader-state" style="color:#8b949e">Chargement...</div>
+                </div>
+            </main>
         </div>
-    </header>
 
-    <main class="container">
-        <section class="add-item-section">
-            <h2>Ajouter un nouvel item</h2>
-            <form id="add-item-form" class="item-form">
-                <div class="form-group">
-                    <input type="text" id="item-name" placeholder="Nom de l'item" required>
+        <footer class="status-bar">
+            <div class="status-left">
+                <div id="api-status" class="engine-badge connecting">
+                    <img src="assets/logo_icon.svg" alt="logo" class="whale-icon">
+                    <span id="status-text">Engine starting...</span>
                 </div>
-                <div class="form-group">
-                    <input type="text" id="item-desc" placeholder="Description (optionnelle)">
-                </div>
-                <button type="submit" class="btn-primary">Ajouter</button>
-            </form>
-        </section>
+            </div>
 
-        <hr class="divider">
+            <div class="status-right">
+                <span>RAM 2.4GB</span>
+                <span class="divider" style="background:#30363d"></span>
+                <span>CPU 12%</span>
+                <span class="divider" style="background:#30363d"></span>
+                <span id="version-display">v1.0.0</span>
+            </div>
+        </footer>
+    </div>
 
-        <section id="items-container" class="items-grid">
-            <div class="loader">Chargement des données...</div>
-        </section>
-    </main>
-
-    <footer>
-        <p>TP Conteneurisation - <span id="year"></span></p>
-    </footer>
-    <script src="env-config.js"></script>
     <script src="script.js"></script>
 </body>
 
