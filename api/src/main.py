@@ -11,17 +11,15 @@ from .database import get_db_cursor
 app = FastAPI(title="TD Containerized API")
 
 
-# Modèle pour la création (l'id et created_at sont gérés par la DB)
 class ItemCreate(BaseModel):
-    """Modèle pour la création d'un item."""
+    """Payload de création (id et created_at auto-générés par PostgreSQL)."""
 
     name: str
     description: Optional[str] = None
 
 
-# Modèle complet pour la lecture
 class Item(BaseModel):
-    """Modèle complet d'un item."""
+    """Modèle de réponse complet."""
 
     id: int
     name: str
@@ -31,17 +29,13 @@ class Item(BaseModel):
 
 @app.get("/status")
 def read_status():
-    """
-    Renvoie un message indiquant que l'API est disponible.
-    """
+    """Healthcheck endpoint pour orchestrateur (Docker Compose, K8s)."""
     return {"status": "OK"}
 
 
 @app.get("/items", response_model=List[Item])
 def read_items():
-    """
-    Interroge la DB et renvoie la liste des items.
-    """
+    """Récupère tous les items."""
     try:
         with get_db_cursor() as cur:
             cur.execute(
@@ -55,9 +49,7 @@ def read_items():
 
 @app.post("/items", response_model=Item, status_code=status.HTTP_201_CREATED)
 def create_item(item: ItemCreate):
-    """
-    Ajoute un nouvel item en base de données.
-    """
+    """Crée un nouvel item."""
     try:
         with get_db_cursor() as cur:
             cur.execute(
@@ -76,16 +68,13 @@ def create_item(item: ItemCreate):
 
 @app.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_item(item_id: int):
-    """
-    Supprime un item par son ID.
-    """
+    """Supprime un item."""
     try:
         with get_db_cursor() as cur:
             cur.execute("DELETE FROM items WHERE id = %s RETURNING id;", (item_id,))
             deleted = cur.fetchone()
 
             if not deleted:
-                # Si rien n'a été supprimé, c'est que l'ID n'existait pas
                 raise HTTPException(status_code=404, detail="Item not found")
 
     except HTTPException as e:

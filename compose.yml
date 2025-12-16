@@ -1,17 +1,25 @@
 services:
+  # Service de base de données PostgreSQL
   db:
-    image: postgres:alpine # Image alpine pour la légèreté
+    image: postgres:alpine
+    # Utilisation de la variante Alpine pour réduire la taille de l'image
 
-    # Injection des variables d'environnement définies dans le fichier .env
+    # Configuration des paramètres PostgreSQL via variables d'environnement
+    # Les valeurs sont injectées depuis le fichier .env pour la sécurité
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASS}
       POSTGRES_DB: ${DB_NAME}
-    # Gestion des volumes pour la persistance et l'initialisation
+
+    # Configuration des volumes pour la persistance et l'initialisation
     volumes:
-      - db_data:/var/lib/postgresql/data # Persistance des données via un volume nommé
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro # Montage du script SQL pour l'exécution automatique au démarrage
-    # Vérification de l'état de santé du service (HealthCheck)
+      - db_data:/var/lib/postgresql/data
+      # Volume nommé pour persister les données de la base entre les redémarrages
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      # Script d'initialisation exécuté automatiquement au premier démarrage (lecture seule)
+
+    # Healthcheck pour vérifier la disponibilité de PostgreSQL
+    # Permet aux autres services de démarrer uniquement quand la DB est prête
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
@@ -19,58 +27,89 @@ services:
       retries: 5
       start_period: 10s
 
-    networks: # Réseau interne pour isoler la communication
+    # Connexion au réseau interne pour isoler la communication inter-services
+    networks:
       - internal_network
 
-    restart: unless-stopped # Redémarrage automatique sauf arrêt manuel
-  # Service API (Backend)
+    # Politique de redémarrage automatique sauf arrêt manuel explicite
+    restart: unless-stopped
+  # Service API Backend (FastAPI/Uvicorn)
   api:
     build:
       context: ./api
+      # Construction de l'image depuis le Dockerfile dans le répertoire ./api
     image: ${DOCKER_USER}/tdocker-api:latest
-    # Injection des variables pour la connexion DB
+    # Tag de l'image avec le nom d'utilisateur Docker Hub pour publication
+
+    # Configuration de la connexion à la base de données
+    # Variables injectées depuis le fichier .env pour sécuriser les credentials
     environment:
       DB_HOST: db
+      # Utilise le nom du service comme hostname grâce à la résolution DNS de Docker
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASS: ${DB_PASS}
-    # S'assure que la DB est "healthy" avant de lancer l'API
+
+    # Dépendance sur le service de base de données
+    # L'API ne démarre que lorsque PostgreSQL est healthy (répond au healthcheck)
     depends_on:
       db:
         condition: service_healthy
+
+    # Healthcheck défini dans le Dockerfile de l'API (endpoint /status)
     healthcheck:
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 5s
+
+    # Connexion au réseau interne pour la communication avec db et front
     networks:
       - internal_network
+
+    # Politique de redémarrage automatique sauf arrêt manuel explicite
     restart: unless-stopped
 
-  # Service Frontend (Nginx)
+  # Service Frontend (Serveur web Nginx)
   front:
     build:
       context: ./frontend
+      # Construction de l'image depuis le Dockerfile dans le répertoire ./frontend
     image: ${DOCKER_USER}/tdfront-front:latest
+    # Tag de l'image avec le nom d'utilisateur Docker Hub pour publication
+
+    # Healthcheck défini dans le Dockerfile frontend (wget sur /)
     healthcheck:
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 5s
+
+    # Exposition du port pour accès externe à l'application
     ports:
-      - "${FRONTEND_PORT}:8080" # Exposition du port HTTP standard
+      - "${FRONTEND_PORT}:8080"
+      # Map le port de l'hôte (défini dans .env) vers le port 8080 du conteneur
+
+    # Dépendance sur le service API
+    # Le frontend ne démarre que lorsque l'API est healthy et opérationnelle
     depends_on:
       api:
         condition: service_healthy
+
+    # Connexion au réseau interne pour communiquer avec l'API
     networks:
       - internal_network
+
+    # Politique de redémarrage automatique sauf arrêt manuel explicite
     restart: unless-stopped
 
-# Déclaration du volume nommé
+# Déclaration des volumes nommés pour la persistance des données
 volumes:
   db_data:
+    # Volume pour stocker les données PostgreSQL de manière persistante
 
-# Déclaration du réseau
+# Déclaration des réseaux pour l'isolation et la communication inter-services
 networks:
   internal_network:
     driver: bridge
+    # Réseau bridge pour permettre la communication entre conteneurs via résolution DNS

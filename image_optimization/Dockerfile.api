@@ -1,53 +1,60 @@
-# Utilisation de l'image de base unique
-FROM python:3.11-slim
+# Image Python slim pour une API en architecture single-stage
+FROM python:3.13-slim
+# Utilisation d'une image Python slim pour réduire la taille et la surface d'attaque
 
-# Métadonnées
+# Métadonnées de l'image pour la traçabilité et la documentation
 LABEL maintainer="Lohan Lacroix" \
       version="1.0" \
       description="API sécurisée non-root (Single Stage)"
 
-# Variables d'environnement
-# PATH est mis à jour pour prioriser l'environnement virtuel
+# Configuration des variables d'environnement pour optimiser Python en production
 ENV PYTHONUNBUFFERED=1 \
+# Force l'écriture directe des logs sans mise en buffer
     PYTHONDONTWRITEBYTECODE=1 \
+# Désactive la création de fichiers .pyc (optimisation espace)
     PATH="/opt/venv/bin:$PATH"
+# Activation de l'environnement virtuel en modifiant le PATH
 
-# Définition du dossier de travail
 WORKDIR /app
 
-# 1. Création de l'utilisateur non-root (UID 1001)
-# 2. Préparation des dossiers avec les bonnes permissions pour éviter les problèmes de droits plus tard
+# Création de l'utilisateur non-privilégié et configuration des permissions
+# Préparation des répertoires avec les bonnes permissions dès la création
 RUN useradd -r -u 1001 -m appuser && \
+# -u 1001: définit l'UID
     mkdir -p /opt/venv && \
     chown -R appuser:appuser /opt/venv /app
+# Attribution des droits sur les répertoires pour éviter les problèmes de permissions
 
-# Copie du fichier de dépendances
+# Copie du fichier de dépendances avant le code source (optimisation du cache Docker)
 COPY requirements.txt .
 
-# Installation des dépendances
-# Nous créons le venv et installons les paquets en une seule étape pour réduire les layers.
-# L'option --no-cache-dir est CRITUALE ici pour ne pas alourdir l'image inutilement.
-# En revanche elle n'est pas utilisé ici pour l'exercice de simulation de build multi-stage. car elle "simule" une copie depuis un builder.
+# Installation des dépendances Python dans un environnement virtuel isolé
+# Création du venv et installation des packages en une seule couche pour réduire la taille
 RUN python -m venv /opt/venv && \
+# Création de l'environnement virtuel Python
     /opt/venv/bin/pip install --upgrade pip && \
+# Mise à jour de pip vers la dernière version
     /opt/venv/bin/pip install -r requirements.txt && \
-    # On s'assure que le venv appartient bien à l'utilisateur final
+# Installation des dépendances (sans --no-cache-dir pour simuler un build multi-stage)
     chown -R appuser:appuser /opt/venv
+# Attribution finale des permissions au venv pour l'utilisateur non-privilégié
 
-# Copie du code source
-# On applique directement les droits à l'utilisateur appuser
+# Copie du code source de l'application avec les bonnes permissions
+# --chown: définit appuser comme propriétaire dès la copie pour éviter les problèmes de permissions
 COPY --chown=appuser:appuser ./src /app/src
 
-# --- HEALTHCHECK PYTHON PUR ---
-# Conservation de votre script Python one-liner (très bonne pratique pour éviter d'installer curl/wget)
+# Configuration du healthcheck pour la supervision de l'application
+# Utilise urllib (bibliothèque standard Python) pour tester l'endpoint /status
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD python -c "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/status').getcode() == 200 else 1)"
+# Évite d'installer curl/wget, réduit la taille et la surface d'attaque
 
-# Passage à l'utilisateur non-privilégié
+# Bascule vers l'utilisateur non-privilégié pour exécuter l'application
+# Sécurise le conteneur en empêchant l'exécution en tant que root
 USER appuser
 
-# Documentation du port
+# Déclaration du port exposé par l'application (documentation uniquement)
 EXPOSE 8000
 
-# Lancement de l'application via Uvicorn
+# Commande de démarrage de l'application FastAPI avec Uvicorn
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

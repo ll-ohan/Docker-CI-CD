@@ -6,10 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Docker Desktop Clone</title>
     <link rel="stylesheet" href="style.css">
+    <!-- CDN externe Google Fonts : dépendance réseau tierce -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
+    <!-- Application SPA servie par Nginx, toutes les requêtes /api/* sont proxifiées vers le backend FastAPI -->
     <div class="app-shell">
 
         <header class="top-header">
@@ -66,6 +68,7 @@
                     </div>
                 </div>
 
+                <!-- Formulaire POST: déclenche une requête HTTP vers /api/items pour créer un nouveau conteneur -->
                 <section class="action-bar">
                     <form id="add-item-form" class="inline-create-form">
                         <input type="text" id="item-name" class="docker-input" placeholder="Name" required>
@@ -86,12 +89,14 @@
                     <span class="col-actions">Actions</span>
                 </div>
 
+                <!-- Contenu dynamique injecté via JavaScript après fetch() vers /api/items -->
                 <div id="items-container" class="items-list">
                     <div class="loader-state" style="color:#8b949e">Chargement...</div>
                 </div>
             </main>
         </div>
 
+        <!-- Footer : health check temps réel du service API backend -->
         <footer class="status-bar">
             <div class="status-left">
                 <div id="api-status" class="engine-badge connecting">
@@ -100,6 +105,7 @@
                 </div>
             </div>
 
+            <!-- Métriques système (mock) : en production récupérées via Docker API ou cAdvisor -->
             <div class="status-right">
                 <span>RAM 2.4GB</span>
                 <span class="divider" style="background:#30363d"></span>

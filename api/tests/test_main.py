@@ -5,7 +5,7 @@ from src.main import app
 
 client = TestClient(app)
 
-# Données factices pour les tests
+# Fixtures de test
 MOCK_ITEMS = [
     {
         "id": 1,
@@ -21,13 +21,12 @@ MOCK_ITEMS = [
     },
 ]
 
-# --- Tests Nominaux (Happy Path) ---
+# --- Nominal Cases ---
 
 
 def test_read_status():
     """
-    Test 5: Vérification du endpoint /status.
-    Reference: TD/test.md Section 3.A.5
+    Healthcheck endpoint : validation du code HTTP 200 et payload JSON.
     """
     response = client.get("/status")
     assert response.status_code == 200
@@ -36,14 +35,12 @@ def test_read_status():
 
 def test_read_items_success():
     """
-    Test 6: Récupération des items avec succès.
-    Reference: TD/test.md Section 3.A.6
+    GET /items : récupération des items avec sérialisation Pydantic.
     """
-    # On mock le context manager get_db_cursor
+    # Mock du context manager pour isoler le test sans accès PostgreSQL
     mock_cursor = MagicMock()
     mock_cursor.fetchall.return_value = MOCK_ITEMS
 
-    # Configuration du Context Manager Mock
     mock_db_context = MagicMock()
     mock_db_context.__enter__.return_value = mock_cursor
     mock_db_context.__exit__.return_value = None
@@ -55,20 +52,19 @@ def test_read_items_success():
         data = response.json()
         assert len(data) == 2
         assert data[0]["name"] == "Test Item 1"
-        # Vérification que Pydantic a bien sérialisé la date
+        # Vérifie la sérialisation datetime par Pydantic
         assert "created_at" in data[0]
 
 
-# --- Edge Cases & Erreurs (Unhappy Path) ---
+# --- Edge Cases ---
 
 
 def test_read_items_empty():
     """
-    Test 7: Liste d'items vide.
-    Reference: TD/test.md Section 3.B.7
+    GET /items avec table vide : retourne 200 avec liste JSON vide.
     """
     mock_cursor = MagicMock()
-    mock_cursor.fetchall.return_value = []  # Retourne liste vide
+    mock_cursor.fetchall.return_value = []
 
     mock_db_context = MagicMock()
     mock_db_context.__enter__.return_value = mock_cursor
@@ -82,10 +78,10 @@ def test_read_items_empty():
 
 def test_read_items_internal_error():
     """
-    Test 8: Erreur interne (DB crash).
+    Simulation d'une perte de connexion PostgreSQL : retourne HTTP 500.
     Reference: TD/test.md Section 3.B.8
     """
-    # Le context manager lève une exception inattendue
+    # Mock side_effect pour simuler un crash réseau ou une indisponibilité DB
     with patch("src.main.get_db_cursor", side_effect=Exception("DB Connection Lost")):
         response = client.get("/items")
 

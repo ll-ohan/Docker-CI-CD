@@ -8,21 +8,19 @@ from contextlib import contextmanager
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-# Récupération des variables d'environnement définies dans le docker-compose ou .env
-# Externalisation de la connexion via variables d'environnement
+# Configuration réseau : résolution via DNS interne Docker (service "db" dans docker-compose)
+# Les credentials sont injectés par l'orchestrateur via variables d'environnement
 DB_HOST = os.getenv("DB_HOST", "db")
 DB_NAME = os.getenv("DB_NAME", "postgres")
 DB_USER = os.getenv("DB_USER", "postgres")
 DB_PASS = os.getenv("DB_PASS", "password")
-DB_PORT = (
-    5432  # Port PostgreSQL par défaut non accessible pour la sécurité donc non modifié.
-)
+DB_PORT = 5432  # Port interne au réseau Docker (non exposé sur l'hôte)
 
 
 def get_db_connection():
     """
-    Tente de se connecter à la base de données.
-    Inclut une logique de réessai simple car la DB peut être plus lente à démarrer que l'API.
+    Établit une connexion PostgreSQL avec retry automatique.
+    Gère le démarrage asynchrone des conteneurs : l'API attend que le service DB soit prêt.
     """
     while True:
         try:
@@ -43,7 +41,7 @@ def get_db_connection():
 @contextmanager
 def get_db_cursor():
     """
-    Gestionnaire de contexte pour ouvrir et fermer proprement les connexions.
+    Context manager avec gestion transactionnelle (commit/rollback).
     """
     conn = get_db_connection()
     try:

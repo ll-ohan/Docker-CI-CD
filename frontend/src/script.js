@@ -1,4 +1,4 @@
-// Variable globale pour stocker les items récupérés (pour le filtre)
+// Cache client-side pour réduire les requêtes HTTP vers l'API backend
 let allItemsData = [];
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -9,11 +9,10 @@ document.addEventListener("DOMContentLoaded", () => {
   setupSelectAll();
 });
 
-// 1. CONFIGURATION DE LA RECHERCHE INSTANTANÉE
+// Filtrage côté client pour éviter les requêtes réseau répétées
 function setupSearch() {
   const searchInput = document.getElementById("app-search");
 
-  // Vérification de sécurité
   if (!searchInput) {
     console.error(
       "ERREUR : L'élément <input id='app-search'> est introuvable dans le HTML."
@@ -25,8 +24,8 @@ function setupSearch() {
 
   searchInput.addEventListener("input", (e) => {
     const searchTerm = e.target.value.toLowerCase();
-    console.log("Recherche en cours :", searchTerm); // Pour voir si ça réagit
-    console.log("Données disponibles :", allItemsData.length); // Vérifie qu'on a des items
+    console.log("Recherche en cours :", searchTerm);
+    console.log("Données disponibles :", allItemsData.length);
 
     const filteredItems = allItemsData.filter(
       (item) =>
@@ -39,9 +38,7 @@ function setupSearch() {
   });
 }
 
-// ... (setupForm et checkApiStatus restent identiques) ...
-
-// 2. RÉCUPÉRATION DES DONNÉES
+// Requête HTTP GET vers l'API backend (proxyfié via Nginx : /api/* → http://api:8000/*)
 async function fetchItems() {
   const container = document.getElementById("items-container");
 
@@ -49,10 +46,8 @@ async function fetchItems() {
     const response = await fetch("/api/items");
     if (!response.ok) throw new Error("Erreur API");
 
-    // On stocke les données dans la variable globale
     allItemsData = await response.json();
 
-    // On lance l'affichage initial avec toutes les données
     renderItems(allItemsData);
   } catch (e) {
     container.innerHTML = `<div style="color:red; padding:20px; text-align:center;">
@@ -62,7 +57,6 @@ async function fetchItems() {
   }
 }
 
-// 3. FONCTION D'AFFICHAGE (RENDER)
 function renderItems(items) {
   const container = document.getElementById("items-container");
   container.innerHTML = "";
@@ -80,7 +74,6 @@ function renderItems(items) {
     const row = document.createElement("div");
     row.className = "item-row";
 
-    // --- GESTION DE LA DATE ---
     const dateObj = new Date(item.created_at);
     const formattedDate = dateObj.toLocaleDateString("fr-FR", {
       day: "numeric",
@@ -90,12 +83,10 @@ function renderItems(items) {
       minute: "2-digit",
     });
 
-    // --- GESTION DU STATUT ---
-    // Simule un statut "Running" pour les ID pairs, "Exited" pour les impairs
+    // Mock status & port mapping (production: récupérer depuis Docker daemon via API)
     const isRunning = item.id % 2 === 0;
     const statusClass = isRunning ? "running" : "stopped";
     const statusTooltip = isRunning ? "Running" : "Exited";
-    // Simule un port aléatoire si running
     const port = Math.floor(Math.random() * (9000 - 3000) + 3000);
 
     row.innerHTML = `
@@ -135,7 +126,7 @@ function renderItems(items) {
   });
 }
 
-// Setup Form (inchangé)
+// Requête HTTP POST vers l'API backend pour créer un nouveau conteneur
 function setupForm() {
   const form = document.getElementById("add-item-form");
   form.addEventListener("submit", async (e) => {
@@ -174,9 +165,7 @@ function setupForm() {
   });
 }
 
-// 4. GESTION DU "SELECT ALL"
 function setupSelectAll() {
-  // On cible la checkbox dans le header
   const headerCheckbox = document.querySelector(
     '.grid-header .col-check input[type="checkbox"]'
   );
@@ -186,19 +175,17 @@ function setupSelectAll() {
   headerCheckbox.addEventListener("change", (e) => {
     const isChecked = e.target.checked;
 
-    // On récupère toutes les checkboxes visibles dans la liste
     const rowCheckboxes = document.querySelectorAll(
       '#items-container .item-row .col-check input[type="checkbox"]'
     );
 
-    // On applique l'état du header à toutes les lignes
     rowCheckboxes.forEach((box) => {
       box.checked = isChecked;
     });
   });
 }
 
-// Check API Status (Mise à jour pour le footer)
+// Health check HTTP vers le backend pour vérifier la disponibilité du service API
 async function checkApiStatus() {
   const statusEl = document.getElementById("api-status");
   const textEl = document.getElementById("status-text");
@@ -217,6 +204,7 @@ async function checkApiStatus() {
   }
 }
 
+// Requête HTTP DELETE vers l'API backend
 async function deleteItem(id) {
   if (!confirm("Stop and remove this container?")) return;
   try {
@@ -227,6 +215,7 @@ async function deleteItem(id) {
   }
 }
 
+// Sanitisation XSS pour l'affichage de données utilisateur
 function escapeHtml(text) {
   if (!text) return text;
   return text

@@ -3,16 +3,15 @@ import psycopg2
 from unittest.mock import MagicMock, patch
 from src.database import get_db_connection, get_db_cursor
 
-# --- Tests Nominaux (Happy Path) ---
+# --- Nominal Cases ---
 
 
 def test_get_db_connection_success():
     """
-    Test 1: Vérifie que la connexion est retournée immédiatement si la DB est prête.
-    Reference: TD/test.md Section 3.A.1
+    Connexion immédiate si PostgreSQL est disponible.
     """
+    # Mock de psycopg2.connect pour isoler le test sans dépendance réseau PostgreSQL
     with patch("src.database.psycopg2.connect") as mock_connect:
-        # Configuration du mock pour retourner une fausse connexion
         mock_conn = MagicMock()
         mock_connect.return_value = mock_conn
 
@@ -24,37 +23,36 @@ def test_get_db_connection_success():
 
 def test_get_db_cursor_success():
     """
-    Test 2: Vérifie que le commit et close sont appelés en cas de succès.
-    Reference: TD/test.md Section 3.A.2
+    Cycle de vie transactionnel : commit et close appelés en sortie de contexte.
     """
     mock_conn = MagicMock()
     mock_cursor = MagicMock()
     mock_conn.cursor.return_value = mock_cursor
 
-    # On mock get_db_connection pour retourner notre fausse connexion
+    # Mock de get_db_connection pour isoler le test sans dépendance réseau PostgreSQL
     with patch("src.database.get_db_connection", return_value=mock_conn):
         with get_db_cursor() as cur:
-            # On simule une exécution SQL
             cur.execute("SELECT 1")
 
-        # Vérifications
-        mock_conn.commit.assert_called_once()  # Doit commit en sortie de bloc
-        mock_conn.close.assert_called_once()  # Doit fermer la connexion
+        # Vérifie que la transaction est validée et la connexion fermée proprement
+        mock_conn.commit.assert_called_once()
+        mock_conn.close.assert_called_once()
 
 
-# --- Edge Cases & Erreurs (Unhappy Path) ---
+# --- Edge Cases ---
 
 
 def test_get_db_connection_retry():
     """
-    Test 3: Vérifie le mécanisme de retry si la DB n'est pas prête (OperationalError).
-    Reference: TD/test.md Section 3.B.3
+    Retry automatique en cas d'OperationalError (conteneur PostgreSQL pas encore prêt).
+    Simule le démarrage asynchrone des services Docker Compose.
     """
+    # Mock de connect et sleep pour simuler le retry sans attente réelle
     with patch("src.database.psycopg2.connect") as mock_connect, patch(
         "src.database.time.sleep"
     ) as mock_sleep:
 
-        # Scénario : 1er appel échoue (OperationalError), 2ème appel réussit
+        # Side effect : 1ère tentative échoue (DB non prête), 2ème réussit
         mock_connect.side_effect = [
             psycopg2.OperationalError("DB not ready"),
             MagicMock(),
@@ -62,26 +60,25 @@ def test_get_db_connection_retry():
 
         conn = get_db_connection()
 
-        # Vérifie qu'on a bien essayé 2 fois
+        # Vérifie le comportement de retry : 2 tentatives avec sleep(2) entre les deux
         assert mock_connect.call_count == 2
-        # Vérifie qu'on a attendu (sleep)
         mock_sleep.assert_called_once_with(2)
         assert conn is not None
 
 
 def test_get_db_cursor_rollback_on_error():
     """
-    Test 4: Vérifie que le rollback est effectué en cas d'erreur SQL.
-    Reference: TD/test.md Section 3.B.4
+    Gestion transactionnelle en cas d'erreur : rollback automatique sans commit.
     """
     mock_conn = MagicMock()
 
+    # Mock de la connexion pour tester le comportement du context manager en cas d'exception
     with patch("src.database.get_db_connection", return_value=mock_conn):
-        with pytest.raises(ValueError):  # On s'attend à ce que l'erreur remonte
+        with pytest.raises(ValueError):
             with get_db_cursor():
                 raise ValueError("Erreur simulée pendant la requête")
 
-        # Vérifications
-        mock_conn.commit.assert_not_called()  # Ne doit PAS commit
-        mock_conn.rollback.assert_called_once()  # Doit rollback
-        mock_conn.close.assert_called_once()  # Doit toujours fermer
+        # Vérifie l'atomicité : rollback sans commit, connexion fermée proprement
+        mock_conn.commit.assert_not_called()
+        mock_conn.rollback.assert_called_once()
+        mock_conn.close.assert_called_once()

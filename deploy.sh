@@ -1,127 +1,316 @@
 #!/bin/bash
 
+################################################################################
+# SCRIPT D'ORCHESTRATION DE DÉPLOIEMENT COMPLET
+################################################################################
+# Description : Pipeline d'orchestration maître coordonnant l'ensemble du
+#               processus de déploiement. Exécute séquentiellement les phases
+#               de tests, sécurité, publication et déploiement avec gestion
+#               d'erreurs et métriques de performance globales.
+#
+# Auteur      : Développement Infrastructure
+# Version     : 2.0.0
+# Date        : 2025-12-16
+#
+# Prérequis   : - Docker Engine 20.10+
+#               - Docker Compose V2
+#               - Bash 4.0+
+#               - Scripts: run_tests.sh, run_safety.sh,
+#                         run_docker_publication.sh, run_app.sh
+#
+# Usage       : ./deploy.sh
+# Exit codes  : 0 = pipeline complet réussi
+#               1 = échec à une étape du pipeline
+################################################################################
+
+set -o pipefail  # Propagation des erreurs dans les pipes
+
 # ==============================================================================
-# CONFIGURATION VISUELLE & VARIABLES
+# SECTION 1: CONFIGURATION VISUELLE & VARIABLES GLOBALES
 # ==============================================================================
-# Couleurs ANSI
+
+# ------------------------------------------------------------------------------
+# 1.1 Définition des couleurs ANSI
+# ------------------------------------------------------------------------------
+# Utilise des séquences ANSI directes pour compatibilité maximale
 BOLD='\033[1m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
 RED='\033[0;31m'
-YELLOW='\033[0;33m'
 PURPLE='\033[0;35m'
-NC='\033[0m' # No Color
+YELLOW='\033[0;33m'
+NC='\033[0m'  # Reset/No Color
 
-# Icônes
-ICON_PIPELINE="🚀"
-ICON_STEP="👉"
-ICON_CHECK="✅"
-ICON_ERROR="💥"
-ICON_TIME="⏱️"
-ICON_FINISH="🏁"
+# ------------------------------------------------------------------------------
+# 1.2 Symboles pour l'affichage hiérarchique
+# ------------------------------------------------------------------------------
+SYMBOL_OK="[✓]"
+SYMBOL_ERROR="[✗]"
+SYMBOL_INFO="[i]"
+SYMBOL_STAGE=">>>"
+SYMBOL_PIPELINE="[PIPELINE]"
+SYMBOL_COMPLETE="[DONE]"
 
-# Timer global
-GLOBAL_START=$(date +%s)
+# ------------------------------------------------------------------------------
+# 1.3 Variables de timing global
+# ------------------------------------------------------------------------------
+GLOBAL_START=$(date +%s)              # Timestamp de début du pipeline
+STAGE_COUNT=0                         # Compteur d'étapes complétées
+TOTAL_STAGES=4                        # Nombre total d'étapes dans le pipeline
 
 # ==============================================================================
-# FONCTIONS UTILITAIRES
+# SECTION 2: FONCTIONS UTILITAIRES
 # ==============================================================================
 
+# ------------------------------------------------------------------------------
+# Fonction: print_main_header
+# Description: Affiche l'en-tête principal du pipeline d'orchestration
+# ------------------------------------------------------------------------------
 print_main_header() {
     clear
-    echo -e "${PURPLE}╔════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${PURPLE}║${NC}  ${BOLD}${ICON_PIPELINE}  MASTER DEPLOYMENT PIPELINE${NC}                                ${PURPLE}║${NC}"
-    echo -e "${PURPLE}║${NC}  ${CYAN}Stages:${NC} Test • Security • Publish • Deploy                     ${PURPLE}║${NC}"
-    echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${BLUE}╔══════════════════════════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}║╔════════════════════════════════════════════════════════════════════════════════════╗║${NC}"
+    echo -e "${BLUE}║║${NC}  ${BOLD}MASTER DEPLOYMENT ORCHESTRATION PIPELINE${NC}                                          ${BLUE}║║${NC}"
+    echo -e "${BLUE}║║${NC}                                                                                    ${BLUE}║║${NC}"
+    echo -e "${BLUE}║║${NC}  ${CYAN}Architecture:${NC} 4-Stage Sequential Pipeline with Failure Handling                   ${BLUE}║║${NC}"
+    echo -e "${BLUE}║║${NC}  ${CYAN}Stages:${NC}       Quality Gate • Security Audit • Publication • Deployment            ${BLUE}║║${NC}"
+    echo -e "${BLUE}║║${NC}  ${CYAN}Version:${NC}      2.0.0                                                               ${BLUE}║║${NC}"
+    echo -e "${BLUE}║║${NC}  ${CYAN}Date:${NC}         $(date '+%Y-%m-%d %H:%M:%S')                                                 ${BLUE}║║${NC}"
+    echo -e "${BLUE}║╚════════════════════════════════════════════════════════════════════════════════════╝║${NC}"
+    echo -e "${BLUE}╚══════════════════════════════════════════════════════════════════════════════════════╝${NC}"
+
     echo ""
 }
 
-# Fonction pour exécuter une étape (un script externe)
-# Usage: run_stage "Nom de l'étape" "./script.sh"
-run_stage() {
-    local stage_name="$1"
-    local script_path="$2"
+# ------------------------------------------------------------------------------
+# Fonction: print_stage_header
+# Description: Affiche l'en-tête d'une étape du pipeline avec hiérarchie visuelle
+# Arguments: $1 - Numéro de l'étape
+#            $2 - Nom de l'étape
+#            $3 - Description de l'étape
+# ------------------------------------------------------------------------------
+print_stage_header() {
+    local stage_num="$1"
+    local stage_name="$2"
+    local stage_desc="$3"
 
-    echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${ICON_STEP}  ${BOLD}STAGE: $stage_name${NC}"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
+    echo ""
+    echo -e "${BOLD}${PURPLE}═══════════════════════════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${BOLD}${PURPLE}---------------------------------------------------------------------------------------${NC}"
+    echo -e "${BOLD}${PURPLE}  ${SYMBOL_STAGE} STAGE ${stage_num}/${TOTAL_STAGES}: ${stage_name}${NC}"
+    echo -e "${BOLD}${PURPLE}---------------------------------------------------------------------------------------${NC}"
+    echo -e "${BOLD}${PURPLE}═══════════════════════════════════════════════════════════════════════════════════════${NC}"
+    echo -e ""
+    echo -e "  ${CYAN}${SYMBOL_INFO}${NC} ${stage_desc}"
+    echo -e "${PURPLE}───────────────────────────────────────────────────────────────────────────────────────${NC}"
+    echo -e ""
+    echo ""
+}
+
+# ------------------------------------------------------------------------------
+# Fonction: print_stage_complete
+# Description: Affiche un message de succès pour une étape complétée
+# Arguments: $1 - Nom de l'étape
+#            $2 - Durée de l'étape en secondes
+# ------------------------------------------------------------------------------
+print_stage_complete() {
+    local stage_name="$1"
+    local duration="$2"
+
+    echo ""
+    echo -e "${GREEN}${BOLD}${SYMBOL_OK} STAGE COMPLETED:${NC} ${stage_name} ${GREEN}(durée: ${duration}s)${NC}"
+}
+
+# ------------------------------------------------------------------------------
+# Fonction: print_stage_failed
+# Description: Affiche un message d'erreur pour une étape échouée
+# Arguments: $1 - Nom de l'étape
+#            $2 - Code de sortie
+#            $3 - Durée de l'étape en secondes
+# ------------------------------------------------------------------------------
+print_stage_failed() {
+    local stage_name="$1"
+    local exit_code="$2"
+    local duration="$3"
+
+    echo ""
+    echo -e "${RED}${BOLD}═══════════════════════════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${RED}${BOLD}  ${SYMBOL_ERROR} PIPELINE HALTED - STAGE FAILURE${NC}"
+    echo -e "${RED}${BOLD}═══════════════════════════════════════════════════════════════════════════════════════${NC}"
+    echo -e "  ${RED}${SYMBOL_ERROR}${NC} Étape échouée: ${BOLD}${stage_name}${NC}"
+    echo -e "  ${YELLOW}${SYMBOL_INFO}${NC} Code de sortie: ${exit_code}"
+    echo -e "  ${YELLOW}${SYMBOL_INFO}${NC} Durée avant échec: ${duration}s"
+    echo ""
+}
+
+# ------------------------------------------------------------------------------
+# Fonction: run_stage
+# Description: Exécute un script externe représentant une étape du pipeline
+#              avec gestion d'erreurs, timing et affichage hiérarchique
+# Arguments: $1 - Numéro de l'étape
+#            $2 - Nom de l'étape
+#            $3 - Description de l'étape
+#            $4 - Chemin vers le script à exécuter
+# Retour: 0 si succès, 1 si échec (avec arrêt du pipeline)
+# ------------------------------------------------------------------------------
+run_stage() {
+    local stage_num="$1"
+    local stage_name="$2"
+    local stage_desc="$3"
+    local script_path="$4"
+
+    # Affichage de l'en-tête de l'étape
+    print_stage_header "$stage_num" "$stage_name" "$stage_desc"
 
     # Vérification de l'existence du script
     if [ ! -f "$script_path" ]; then
-        echo -e "${RED}${ICON_ERROR} Erreur critique : Le script $script_path est introuvable.${NC}"
+        echo -e "  ${RED}${SYMBOL_ERROR}${NC} Erreur critique: Script introuvable: ${script_path}"
+        echo -e "  ${YELLOW}${SYMBOL_INFO}${NC} Assurez-vous que tous les scripts requis sont présents"
         exit 1
     fi
 
-    # Rendre le script exécutable si nécessaire
+    # Vérification des permissions d'exécution
     if [ ! -x "$script_path" ]; then
+        echo -e "  ${CYAN}${SYMBOL_INFO}${NC} Ajout des permissions d'exécution: ${script_path}"
         chmod +x "$script_path"
     fi
 
+    # Démarrage du chronomètre pour cette étape
+    local stage_start=$(date +%s)
+
     # Exécution du script
-    # On laisse le script gérer ses propres logs/sorties
+    # Le script gère son propre affichage et logs
     ./"$script_path"
-    
-    # Récupération du code de retour
+
+    # Récupération du code de sortie
     local exit_code=$?
 
+    # Calcul de la durée de l'étape
+    local stage_end=$(date +%s)
+    local stage_duration=$((stage_end - stage_start))
+
+    # Évaluation du résultat
     if [ $exit_code -eq 0 ]; then
-        echo -e "\n${GREEN}${ICON_CHECK} STAGE COMPLETED: $stage_name${NC}"
+        # Succès - incrémentation du compteur et affichage
+        ((STAGE_COUNT++))
+        print_stage_complete "$stage_name" "$stage_duration"
     else
-        echo -e "\n${RED}${ICON_ERROR} PIPELINE HALTED: Failure in stage '$stage_name' (Exit Code: $exit_code)${NC}"
-        
-        # Calcul du temps avant de quitter
-        GLOBAL_END=$(date +%s)
-        DURATION=$((GLOBAL_END - GLOBAL_START))
-        echo -e "${YELLOW}Durée avant échec : ${DURATION}s${NC}"
+        # Échec - affichage de l'erreur et arrêt du pipeline
+        print_stage_failed "$stage_name" "$exit_code" "$stage_duration"
+
+        # Calcul du temps total avant échec
+        local global_end=$(date +%s)
+        local total_duration=$((global_end - GLOBAL_START))
+
+        echo -e "${YELLOW}${BOLD}Statistiques du pipeline:${NC}"
+        echo -e "  ${CYAN}${SYMBOL_INFO}${NC} Étapes complétées: ${STAGE_COUNT}/${TOTAL_STAGES}"
+        echo -e "  ${CYAN}${SYMBOL_INFO}${NC} Durée totale: ${total_duration}s"
+        echo ""
+
         exit 1
     fi
 }
 
 # ==============================================================================
-# EXÉCUTION DU PIPELINE
+# SECTION 3: EXÉCUTION DU PIPELINE D'ORCHESTRATION
 # ==============================================================================
 
 print_main_header
 
-# 1. TESTS UNITAIRES & QUALITÉ
-# ==============================================================================
-# Script : run_tests.sh
-# Rôle : Vérifie le formatage, le linting, le typage et les tests unitaires via Docker.
-run_stage "Quality Gate & Unit Tests" "./run_tests.sh"
+echo -e "${CYAN}${BOLD}${SYMBOL_PIPELINE} Démarrage du pipeline de déploiement automatisé${NC}"
+echo -e "  ${CYAN}${SYMBOL_INFO}${NC} Timestamp de début: $(date '+%Y-%m-%d %H:%M:%S')"
+echo -e "  ${CYAN}${SYMBOL_INFO}${NC} Nombre d'étapes: ${TOTAL_STAGES}"
+echo ""
 
-# 2. SÉCURITÉ (SAST + CONTAINERS)
-# ==============================================================================
-# Script : run_safety.sh
-# Rôle : Analyse statique du code (Bandit/Flake8) et scan des vulnérabilités images (Trivy/Scout).
-run_stage "Security Audits" "./run_safety.sh"
+# ------------------------------------------------------------------------------
+# STAGE 1: QUALITY GATE & UNIT TESTS
+# ------------------------------------------------------------------------------
+# Objectif: Vérifier la qualité du code et l'exécution des tests unitaires
+# Script: run_tests.sh
+# Outils: Black (formatage), Ruff (linting), Mypy (typage),
+#         Pylint (analyse statique), Pytest (tests + couverture)
+# ------------------------------------------------------------------------------
+run_stage "1" \
+    "Quality Gate & Unit Tests" \
+    "Vérification de la qualité du code et exécution de la suite de tests" \
+    "./run_tests.sh"
 
-# 3. PUBLICATION & SIGNATURE
-# ==============================================================================
-# Script : run_docker_publication.sh
-# Rôle : Build final, Signature (Docker Content Trust) et Push vers le registre.
-run_stage "Docker Registry Publication" "./run_docker_publication.sh"
+# ------------------------------------------------------------------------------
+# STAGE 2: SECURITY AUDITS
+# ------------------------------------------------------------------------------
+# Objectif: Analyse de sécurité du code et des images Docker
+# Script: run_safety.sh
+# Outils: Bandit/Flake8 (SAST), Trivy/Docker Scout (scan de vulnérabilités)
+# ------------------------------------------------------------------------------
+run_stage "2" \
+    "Security Audits" \
+    "Analyse statique de sécurité et scan des vulnérabilités des images" \
+    "./run_safety.sh"
 
-# 4. DÉPLOIEMENT & UP
-# ==============================================================================
-# Script : run_app.sh
-# Rôle : Lancement de la stack (docker compose up), Healthchecks et métriques.
-run_stage "Production Deployment" "./run_app.sh"
+# ------------------------------------------------------------------------------
+# STAGE 3: DOCKER REGISTRY PUBLICATION
+# ------------------------------------------------------------------------------
+# Objectif: Construction finale, signature et publication des images
+# Script: run_docker_publication.sh
+# Outils: Docker Buildx (build multi-plateforme), SBOM, Provenance, Cosign
+# ------------------------------------------------------------------------------
+run_stage "3" \
+    "Docker Registry Publication" \
+    "Build sécurisé, génération SBOM/Provenance et publication sur Docker Hub" \
+    "./run_docker_publication.sh"
+
+# ------------------------------------------------------------------------------
+# STAGE 4: PRODUCTION DEPLOYMENT
+# ------------------------------------------------------------------------------
+# Objectif: Déploiement de la stack et vérification de santé
+# Script: run_app.sh
+# Outils: Docker Compose (orchestration), Healthchecks, métriques
+# ------------------------------------------------------------------------------
+run_stage "4" \
+    "Production Deployment" \
+    "Déploiement de la stack complète avec healthchecks et métriques" \
+    "./run_app.sh"
 
 # ==============================================================================
-# RAPPORT FINAL GLOBAL
+# SECTION 4: RAPPORT FINAL DU PIPELINE
 # ==============================================================================
 
+# Calcul de la durée totale du pipeline
 GLOBAL_END=$(date +%s)
 TOTAL_DURATION=$((GLOBAL_END - GLOBAL_START))
 
-echo -e "\n"
-echo -e "${PURPLE}╔════════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${PURPLE}║${NC}               ${ICON_FINISH}  ${BOLD}PIPELINE SUCCESSFUL${NC}                          ${PURPLE}║${NC}"
-echo -e "${PURPLE}╠════════════════════════════════════════════════════════════════════╣${NC}"
-echo -e "${PURPLE}║${NC}  ${BOLD}Total Time:${NC} ${TOTAL_DURATION}s                                              ${PURPLE}║${NC}"
-echo -e "${PURPLE}║${NC}  ${BOLD}Status:${NC}     ${GREEN}ALL SYSTEMS OPERATIONAL${NC}                          ${PURPLE}║${NC}"
-echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════════╝${NC}"
+# Conversion en minutes et secondes pour l'affichage
+MINUTES=$((TOTAL_DURATION / 60))
+SECONDS=$((TOTAL_DURATION % 60))
+
+echo ""
+echo -e "${GREEN}${BOLD}═══════════════════════════════════════════════════════════════════════════════════════${NC}"
+echo -e "${GREEN}${BOLD}  ${SYMBOL_COMPLETE} PIPELINE DEPLOYMENT SUCCESSFUL${NC}"
+echo -e "${GREEN}${BOLD}═══════════════════════════════════════════════════════════════════════════════════════${NC}"
+echo ""
+
+# Récapitulatif des étapes
+echo -e "${BOLD}${CYAN}Récapitulatif du pipeline:${NC}"
+echo -e "${CYAN}───────────────────────────────────────────────────────────────────────────────────────${NC}"
+printf "${BOLD}%-35s${NC} : ${GREEN}%s${NC}\n" "Étape 1 - Quality Gate" "PASS"
+printf "${BOLD}%-35s${NC} : ${GREEN}%s${NC}\n" "Étape 2 - Security Audits" "PASS"
+printf "${BOLD}%-35s${NC} : ${GREEN}%s${NC}\n" "Étape 3 - Registry Publication" "PASS"
+printf "${BOLD}%-35s${NC} : ${GREEN}%s${NC}\n" "Étape 4 - Production Deployment" "PASS"
+echo -e "${CYAN}───────────────────────────────────────────────────────────────────────────────────────${NC}"
+
+# Métriques de performance
+echo ""
+echo -e "${BOLD}${CYAN}Métriques de performance:${NC}"
+echo -e "${CYAN}───────────────────────────────────────────────────────────────────────────────────────${NC}"
+printf "${BOLD}%-35s${NC} : ${CYAN}%dm %ds${NC}\n" "Durée totale du pipeline" "$MINUTES" "$SECONDS"
+printf "${BOLD}%-35s${NC} : ${CYAN}%s / %s${NC}\n" "Étapes complétées" "$STAGE_COUNT" "$TOTAL_STAGES"
+printf "${BOLD}%-35s${NC} : ${GREEN}%s${NC}\n" "Statut global" "ALL SYSTEMS OPERATIONAL"
+echo -e "${CYAN}───────────────────────────────────────────────────────────────────────────────────────${NC}"
+
+echo ""
+echo -e "${GREEN}${BOLD}${SYMBOL_OK} L'application est maintenant déployée et opérationnelle${NC}"
+echo -e "  ${CYAN}${SYMBOL_INFO}${NC} Timestamp de fin: $(date '+%Y-%m-%d %H:%M:%S')"
 echo ""
 
 exit 0

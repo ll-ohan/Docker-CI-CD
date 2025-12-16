@@ -1,7 +1,7 @@
--- Script d'initialisation de la base de données
--- Ce fichier sera exécuté automatiquement au démarrage du conteneur PostgreSQL
+-- Script d'initialisation PostgreSQL
+-- Exécuté automatiquement par le conteneur au premier démarrage via /docker-entrypoint-initdb.d/
 
--- Création de la table items
+-- Schéma de données
 CREATE TABLE IF NOT EXISTS items (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS items (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insertion de données factices pour tester l'affichage
+-- Seed data pour environnement de développement
 INSERT INTO items (name, description) VALUES
     ('Item 1', 'Ceci est le premier élément de test'),
     ('Item 2', 'Deuxième élément pour tester l''affichage'),
@@ -17,6 +17,6 @@ INSERT INTO items (name, description) VALUES
     ('Item 4', 'Quatrième élément'),
     ('Item 5', 'Dernier élément de test');
 
--- Afficher un message de confirmation (visible dans les logs du conteneur)
+-- Logs de diagnostic (visibles via docker logs <container_id>)
 SELECT 'Base de données initialisée avec succès!' AS message;
 SELECT COUNT(*) AS nombre_items FROM items;

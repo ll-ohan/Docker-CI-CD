@@ -1,5 +1,5 @@
+/* Variables CSS : styleguide centralisé pour cohérence UI cross-browser */
 :root {
-  /* --- PALETTE DARK MODE (Bleu Nuit / Deep Blue) --- */
   --docker-blue-header: #1d63ed;
   --sidebar-bg: #181e29;
   --sidebar-hover: #232a3b;
@@ -37,7 +37,6 @@ body {
   height: 100vh;
 }
 
-/* --- HEADER --- */
 .top-header {
   height: 40px;
   background-color: var(--docker-blue-header);
@@ -78,7 +77,7 @@ body {
   height: 14px;
   margin-right: 8px;
   opacity: 0.7;
-  filter: invert(1); /* Blanc */
+  filter: invert(1);
 }
 
 .search-input {
@@ -129,7 +128,6 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-/* --- SIDEBAR --- */
 .main-body {
   display: flex;
   flex: 1;
@@ -164,7 +162,7 @@ body {
   width: 18px;
   height: 18px;
   margin-right: 12px;
-  filter: invert(0.8); /* Gris clair par défaut */
+  filter: invert(0.8);
 }
 
 .nav-item.active {
@@ -172,7 +170,6 @@ body {
   color: #58a6ff;
 }
 .nav-item.active .nav-icon {
-  /* Filtre bleu pour l'état actif */
   filter: invert(63%) sepia(61%) saturate(4443%) hue-rotate(193deg)
     brightness(103%) contrast(103%);
 }
@@ -183,7 +180,6 @@ body {
   margin: 8px 12px;
 }
 
-/* --- MAIN CONTENT --- */
 .content-wrapper {
   flex: 1;
   background: var(--content-bg);
@@ -251,7 +247,7 @@ body {
   background: #3a7af0;
 }
 
-/* --- GRID TABLE --- */
+/* Layout CSS Grid : colonnes responsive pour affichage tabulaire des conteneurs */
 .grid-header {
   display: grid;
   grid-template-columns: 40px 50px 1.5fr 2fr 1fr 1fr 50px;
@@ -282,24 +278,18 @@ body {
 }
 
 .col-check input[type="checkbox"] {
-  /* Supprime le style natif du navigateur */
   -webkit-appearance: none;
   appearance: none;
-
-  /* Dimensions plus grandes */
   width: 18px;
   height: 18px;
-
-  /* Couleurs du thème */
   background-color: var(--input-bg);
-  border: 2px solid var(--text-secondary); /* Gris visible */
-  border-radius: 4px; /* Coins légèrement arrondis */
-
+  border: 2px solid var(--text-secondary);
+  border-radius: 4px;
   position: relative;
   cursor: pointer;
   outline: none;
   transition: all 0.2s ease-in-out;
-  margin: 0; /* Reset des marges */
+  margin: 0;
 }
 
 .col-check input[type="checkbox"]:hover {
@@ -340,13 +330,12 @@ body {
   align-items: center;
 }
 
-/* --- STATUS ICONS (RÉTABLIS) --- */
+/* Indicateurs visuels statut conteneur : vert (running) / gris (stopped) */
 .status-icon {
   display: inline-block;
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  /* Bordure par défaut pour le statut "arrêté" */
   border: 2px solid var(--text-secondary);
   background-color: transparent;
 }
@@ -354,11 +343,9 @@ body {
 .status-icon.running {
   background-color: var(--success-green);
   border-color: var(--success-green);
-  box-shadow: 0 0 4px rgba(46, 160, 67, 0.4); /* Légère lueur */
+  box-shadow: 0 0 4px rgba(46, 160, 67, 0.4);
 }
-/* .status-icon.stopped utilise le style par défaut (cercle vide gris) */
 
-/* --- ACTIONS (POUBELLE) --- */
 .delete-btn-wrapper {
   background: none;
   border: none;
@@ -371,25 +358,21 @@ body {
   width: 16px;
   height: 16px;
   cursor: pointer;
-  /* Transition fluide pour le hover */
   transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-/* Style spécifique pour la poubelle rouge */
 .bin-icon {
-  /* Filtre pour transformer le noir en rouge */
   filter: invert(27%) sepia(51%) saturate(2878%) hue-rotate(346deg)
     brightness(104%) contrast(97%);
-  opacity: 0.85; /* Légèrement transparent par défaut */
+  opacity: 0.85;
 }
 
-/* Hover sur le bouton conteneur */
 .delete-btn-wrapper:hover .bin-icon {
   opacity: 1;
-  transform: scale(1.25); /* Grossissement au survol */
+  transform: scale(1.25);
 }
 
-/* --- FOOTER --- */
+/* Footer : affichage health check API + métriques système simulé*/
 .status-bar {
   background-color: var(--sidebar-bg);
   border-top: 1px solid var(--border-color);
