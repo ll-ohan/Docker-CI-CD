@@ -63,7 +63,6 @@ DOCKER_IMAGE="python:3.11-slim"    # Image Docker de base pour les tests
 # Description: Affiche l'en-tête du script avec informations sur l'environnement
 # ------------------------------------------------------------------------------
 print_header() {
-    clear
     echo -e "${BLUE}╔═════════════════════════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${BLUE}║${NC}  ${BOLD}AUTOMATED TESTING & QUALITY ASSURANCE PIPELINE${NC}                                     ${BLUE}║${NC}"
     echo -e "${BLUE}║${NC}                                                                                     ${BLUE}║${NC}"

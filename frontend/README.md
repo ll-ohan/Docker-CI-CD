@@ -1,49 +1,48 @@
-# Frontend Containerisé 🖥️
+# Frontend Containerisé
 
-Ce projet est une interface utilisateur statique (SPA) développée en **Vanilla JS**, **HTML5** et **CSS3**. Elle reproduit l'interface visuelle de Docker Desktop ("Dark Mode") pour interagir avec l'API backend. Elle est servie par un serveur **Nginx** hautement sécurisé et optimisé.
+## Description
 
-## 🚀 Fonctionnalités
+Ce projet est une Single Page Application (SPA) développée en Vanilla JS, HTML5 et CSS3. Il fournit une interface graphique reproduisant l'interface "Dark Mode" de Docker Desktop pour interagir avec l'API backend. L'application est servie par un serveur Nginx configuré pour la performance et la sécurité.
 
-L'interface offre une expérience utilisateur fluide pour gérer les ressources :
+## Fonctionnalités
 
-- **Dashboard** : Visualisation sous forme de grille des "conteneurs" (items) avec statut simulé.
-- **Recherche Instantanée** : Filtrage en temps réel des items (nom ou description).
-- **Opérations CRUD** : Formulaire d'ajout rapide ("Run") et suppression ("Delete").
-- **Monitoring API** : Indicateur visuel de l'état de connexion avec le backend (Engine running/stopped).
-- **UX/UI** : Thème sombre fidèle à Docker Desktop, loader states et design réactif.
+L'interface offre une expérience utilisateur fluide pour la gestion des ressources :
 
-## 🛠 Stack Technique
+- **Dashboard** : Visualisation des items sous forme de grille avec statut simulé
+- **Recherche Instantanée** : Filtrage en temps réel par nom ou description
+- **Opérations CRUD** : Création ("Run") et suppression ("Delete") d'items
+- **Monitoring** : Indicateur visuel de l'état de connexion avec l'API (Engine running/stopped)
+- **UX/UI** : Design réactif, thème sombre et indicateurs de chargement
 
-- **Frontend** : HTML5, CSS3 (Variables & Flexbox/Grid), JavaScript ES6+ (Sans framework).
-- **Serveur Web** : Nginx (version Unprivileged).
-- **Image de base** : Alpine Linux 3.21.
+## Stack Technique
 
-## 📦 Points Forts Docker
+- **Langage** : HTML5, CSS3, JavaScript ES6+
+- **Serveur Web** : Nginx (Version Unprivileged)
+- **Image de base** : Alpine Linux 3.21
+- **Architecture** : SPA (Single Page Application) sans framework
 
-Le `Dockerfile` met l'accent sur la sécurité et la légèreté :
+## Architecture Docker
 
-1.  **Multi-stage Build** :
-    - _Stage Builder_ : Copie des sources et nettoyage des fichiers inutiles (fichiers cachés, docs).
-    - _Stage Runner_ : Image finale minimale basée sur Alpine.
-2.  **Sécurité Maximale (Non-root)** : Utilisation de l'image officielle `nginxinc/nginx-unprivileged`. Le conteneur tourne avec l'utilisateur `101` (nginx) et écoute sur le port **8080** (les ports privilégiés <1024 étant interdits).
-3.  **Reverse Proxy Intégré** : Configuration Nginx personnalisée pour rediriger les appels `/api/` vers le container backend (`http://api:8000`), évitant les problèmes de CORS.
-4.  **Healthcheck Léger** : Utilisation de `wget` (présent dans Alpine) au lieu de `curl` pour vérifier que Nginx sert bien la page d'accueil.
+Le Dockerfile a été conçu en suivant les meilleures pratiques de sécurité et d'optimisation :
 
-## ⚙️ Configuration Nginx
+1.  **Multi-stage Build** : Séparation de l'étape de construction (`builder`) pour le nettoyage des sources et de l'étape finale (`runner`) pour minimiser la taille de l'image.
+2.  **Sécurité (Non-root)** : Utilisation de l'image `nginx-unprivileged` exécutant le service avec l'utilisateur `nginx` (UID 101) et écoutant sur le port 8080.
+3.  **Reverse Proxy** : Configuration Nginx intégrée pour rediriger les appels `/api/` vers le backend, résolvant les problématiques de CORS (Cross-Origin Resource Sharing).
+4.  **Healthcheck Léger** : Implémentation d'une vérification d'état utilisant `wget` (natif Alpine) pour confirmer la disponibilité du serveur web.
 
-Le fichier `nginx.conf` assure le rôle de serveur de fichiers statiques et de passerelle vers l'API :
+## Configuration
 
-```nginx
-# Extrait de la configuration
-location /api/ {
-    proxy_pass http://api:8000/; # Redirection vers le backend
-    proxy_set_header Host $host;
-}
-```
+Le serveur Nginx est configuré via le fichier `nginx.conf` pour assurer le service des fichiers statiques et le routage API.
 
-> Note : Le frontend s'attend à ce que l'API soit accessible via le nom d'hôte api sur le port 8000 (configuration standard Docker Compose).
+| Directive    | Description                  | Valeur par défaut       |
+| :----------- | :--------------------------- | :---------------------- |
+| `listen`     | Port d'écoute du conteneur   | `8080`                  |
+| `proxy_pass` | URL du service Backend       | `http://api:8000/`      |
+| `root`       | Répertoire racine des assets | `/usr/share/nginx/html` |
 
-## ▶️ Démarrage Rapide
+> **Note** : Le frontend s'attend à ce que le service API soit accessible via le nom d'hôte `api` sur le port `8000` (configuration par défaut du Docker Compose).
+
+## Démarrage
 
 ### Avec Docker
 
@@ -52,13 +51,3 @@ Construire l'image :
 ```bash
 docker build -t mini-frontend .
 ```
-
-Lancer le conteneur :
-
-```bash
-docker run -p 8080:8080 mini-frontend
-```
-
-Accéder à l'application via `http://localhost:8080`.
-
-_(Pour que l'application fonctionne pleinement, le conteneur API doit tourner sur le même réseau Docker)._

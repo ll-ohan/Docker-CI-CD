@@ -78,7 +78,6 @@ BUILDX_BUILDER="secure_builder"                  # Nom du builder Buildx
 # Description: Affiche l'en-tête du script avec informations sur les fonctionnalités
 # ------------------------------------------------------------------------------
 print_header() {
-    clear
     echo -e "${BLUE}╔═════════════════════════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${BLUE}║${NC}  ${BOLD}DOCKER SECURE PUBLICATION PIPELINE${NC}                                                 ${BLUE}║${NC}"
     echo -e "${BLUE}║${NC}                                                                                     ${BLUE}║${NC}"

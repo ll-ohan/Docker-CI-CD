@@ -83,7 +83,6 @@ RES_SCOUT_FRONT="SKIP"     # Résultat Docker Scout pour le frontend
 # Description: Affiche l'en-tête du script avec informations sur le pipeline
 # ------------------------------------------------------------------------------
 print_header() {
-    clear
     echo -e "${RED}╔═════════════════════════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${RED}║${NC}  ${BOLD}SECURITY AUDIT PIPELINE - MULTI-LAYER ANALYSIS${NC}                                     ${RED}║${NC}"
     echo -e "${RED}║${NC}                                                                                     ${RED}║${NC}"

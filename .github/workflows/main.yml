@@ -13,7 +13,7 @@ jobs:
   validate-and-deploy:
     runs-on: ubuntu-latest
 
-    # Service Postgres optionnel ici car votre docker-compose s'en occupe déjà,
+    # Service Postgres optionnel ici car docker-compose s'en occupe déjà,
     # mais on utilise un runner standard Ubuntu qui a Docker pré-installé.
 
     steps:
@@ -26,8 +26,6 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       # 3. Génération du fichier .env dynamique
-      # Vos scripts (run_safety.sh, compose.yml, etc.) dépendent d'un fichier .env
-      # Nous le recréons à la volée à partir des secrets GitHub pour ne pas le commiter.
       - name: Création du fichier .env
         run: |
           echo "DOCKER_USER=${{ secrets.DOCKER_USER }}" >> .env
@@ -53,7 +51,7 @@ jobs:
           # Lancement du déploiement
           ./deploy.sh
 
-      # 5. Nettoyage (Optionnel, GitHub le fait automatiquement, mais bonne pratique)
+      # 5. Nettoyage
       - name: Arrêt des conteneurs
         if: always()
         working-directory: ./

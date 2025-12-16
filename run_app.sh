@@ -140,7 +140,6 @@ get_mounted_volume_name() {
 # Description: Affiche l'en-tête du script avec informations sur la stack
 # ------------------------------------------------------------------------------
 print_header() {
-    clear
     echo -e "${BLUE}╔═════════════════════════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${BLUE}║${NC}  ${BOLD}APPLICATION DEPLOYMENT & ANALYTICS DASHBOARD${NC}                                       ${BLUE}║${NC}"
     echo -e "${BLUE}║${NC}                                                                                     ${BLUE}║${NC}"

@@ -75,7 +75,7 @@ services:
     build:
       context: ./frontend
       # Construction de l'image depuis le Dockerfile dans le répertoire ./frontend
-    image: ${DOCKER_USER}/tdfront-front:latest
+    image: ${DOCKER_USER}/tdocker-front:latest
     # Tag de l'image avec le nom d'utilisateur Docker Hub pour publication
 
     # Healthcheck défini dans le Dockerfile frontend (wget sur /)
