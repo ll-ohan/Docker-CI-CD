@@ -65,7 +65,7 @@ fi
 # Configuration des images Docker à analyser
 DOCKER_NS=${DOCKER_USER}                  # Namespace Docker Hub
 API_IMAGE="${DOCKER_NS}/tdocker-api:latest"      # Image de l'API à scanner
-FRONT_IMAGE="${DOCKER_NS}/tdfront-front:latest"  # Image du frontend à scanner
+FRONT_IMAGE="${DOCKER_NS}/tdocker-front:latest"  # Image du frontend à scanner
 
 # Variables de résultats pour le rapport final
 RES_CODE="PENDING"         # Résultat de l'analyse statique du code

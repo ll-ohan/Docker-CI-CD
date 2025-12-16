@@ -66,7 +66,7 @@ fi
 # ------------------------------------------------------------------------------
 DOCKER_NS=${DOCKER_USER:-local}                  # Namespace Docker Hub
 API_IMAGE="${DOCKER_NS}/tdocker-api:latest"      # Image de l'API
-FRONT_IMAGE="${DOCKER_NS}/tdfront-front:latest"  # Image du frontend
+FRONT_IMAGE="${DOCKER_NS}/tdocker-front:latest"  # Image du frontend
 BUILDX_BUILDER="secure_builder"                  # Nom du builder Buildx
 
 # ==============================================================================
@@ -402,7 +402,7 @@ print_section "ÉTAPE 5/5: PUBLICATION DE LA DOCUMENTATION"
 
 print_info "Mise à jour des README sur Docker Hub..."
 push_readme "${DOCKER_USER}/tdocker-api" "./api/README.md"
-push_readme "${DOCKER_USER}/tdfront-front" "./frontend/README.md"
+push_readme "${DOCKER_USER}/tdocker-front" "./frontend/README.md"
 
 # ==============================================================================
 # SECTION 4: RAPPORT FINAL
