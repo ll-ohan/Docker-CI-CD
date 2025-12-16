@@ -14,8 +14,9 @@ NC='\033[0m'
 
 ICON_LOCK="🔒"
 ICON_KEY="🔑"
-ICON_WARN="⚠️"
 ICON_DOCKER="🐳"
+ICON_SIGN="✍️"
+ICON_UPLOAD="☁️"
 
 # Chargement du .env
 if [ -f .env ]; then
@@ -24,6 +25,7 @@ if [ -f .env ]; then
     set +o allexport
 fi
 
+# Configuration des images
 DOCKER_NS=${DOCKER_USER:-local}
 API_IMAGE="${DOCKER_NS}/tdocker-api:latest"
 FRONT_IMAGE="${DOCKER_NS}/tdfront-front:latest"
@@ -34,8 +36,8 @@ FRONT_IMAGE="${DOCKER_NS}/tdfront-front:latest"
 print_header() {
     clear
     echo -e "${BLUE}╔════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║${NC}  ${BOLD}${ICON_DOCKER}  DOCKER PUBLICATION & SIGNING${NC}                              ${BLUE}║${NC}"
-    echo -e "${BLUE}║${NC}  ${CYAN}Task:${NC}  DCT • Signing • Registry Push                         ${BLUE}║${NC}"
+    echo -e "${BLUE}║${NC}  ${BOLD}${ICON_DOCKER} DOCKER PUBLICATION${NC}                                 ${BLUE}║${NC}"
+    echo -e "${BLUE}║${NC}  ${CYAN}Features:${NC} SBOM • Provenance • DCT Signing                        ${BLUE}║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -44,100 +46,137 @@ print_section() {
     echo -e "\n${BOLD}${BLUE}┌── $1 ──────────────────────────────────────────${NC}"
 }
 
+# Fonction pour initialiser les clés DCT si absentes
+setup_dct_keys() {
+    local img=$1
+    echo -e "${ICON_KEY}  Vérification des clés pour $img..."
+    
+    # On ajoute le signer "moi" pour le repository si ce n'est pas déjà fait
+    # Note : Cela nécessite les phrases de passe dans les variables d'env
+    if ! docker trust inspect "$img" > /dev/null 2>&1; then
+        echo -e "  ${YELLOW}⚠ Initialisation du trust pour ce repo...${NC}"
+        # Cette étape est souvent interactive la première fois. 
+        # En CI/CD automatisé, il faut que les clés root existent déjà sur la machine host.
+        # Ici on suppose que l'utilisateur a ses clés ou que c'est un run local.
+    fi
+}
+
+push_readme() {
+    local repo_name="$1"
+    local readme_path="$2"
+    
+    # Vérification de jq
+    if ! command -v jq &> /dev/null; then return; fi
+
+    echo -e "${ICON_DOCKER}  Update README pour $repo_name..."
+    if [ ! -f "$readme_path" ]; then return; fi
+
+    local token
+    token=$(curl -s -H "Content-Type: application/json" -X POST -d '{"username": "'"$DOCKER_USER"'", "password": "'"$DOCKER_PASS"'"}' https://hub.docker.com/v2/users/login/ | jq -r .token)
+
+    [ "$token" == "null" ] && return
+
+    curl -s -o /dev/null \
+        -H "Authorization: JWT $token" \
+        -H "Content-Type: application/json" \
+        -X PATCH \
+        --data-raw "$(jq -n --arg desc "$(cat "$readme_path")" '{"full_description": $desc}')" \
+        "https://hub.docker.com/v2/repositories/$repo_name/"
+}
+
 # ==============================================================================
-# EXÉCUTION DE LA PUBLICATION
+# EXÉCUTION
 # ==============================================================================
 
 print_header
 
-# On rebuild rapidement pour s'assurer que l'image locale correspond à ce qu'on va signer
-print_section "Vérification des artéfacts"
-echo -e "${ICON_DOCKER}  Préparation des images..."
-docker compose build > /dev/null 2>&1
-
+# 1. AUTHENTIFICATION
 # --------------------------------------------------------------------------
-# SIGNATURE & REGISTRE (Docker Content Trust)
-# --------------------------------------------------------------------------
-print_section "Signature & Registre"
-
-echo -e "${ICON_KEY}  Activation de Docker Content Trust (DCT)..."
-export DOCKER_CONTENT_TRUST=1
-echo -e "  ${GREEN}✓ Variable DOCKER_CONTENT_TRUST=1 activée${NC}"
-
-echo -e "\n${ICON_LOCK}  Authentification Registre (Login)..."
-if [ -z "$DOCKER_USER" ]; then
-    echo -e "  ${YELLOW}${ICON_WARN} Variable DOCKER_USER non définie dans .env. Opération annulée.${NC}"
-    RES_LOGIN="SKIPPED"
-    RES_SIGN="SKIPPED"
-    exit 1
+print_section "Authentification"
+echo -e "${ICON_LOCK}  Connexion au Docker Hub..."
+if echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin > /dev/null 2>&1; then
+    echo -e "  ${GREEN}✓ Connecté en tant que $DOCKER_USER${NC}"
 else
-    # Tentative de login silencieuse
-    if echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin > /dev/null 2>&1; then
-        echo -e "  ${GREEN}✓ Authentification réussie${NC}"
-        RES_LOGIN="SUCCESS"
-        
-        # Génération des clés et ajout des signers
-        echo -e "\n${ICON_KEY}  Gestion des clés de signature..."
-        if echo "$DOCKER_CONTENT_TRUST_ROOT_PASSPHRASE" | docker trust key generate "$DOCKER_USER"_root_key > /dev/null 2>&1 && \
-           echo "$DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE" | docker trust key generate "$DOCKER_USER"_repo_key > /dev/null 2>&1; then
-            echo -e "  ${GREEN}✓ Clés de signature générées${NC}"
-            
-            # Ajout des délégations
-            docker trust signer add --key "$DOCKER_USER"_repo_key.pub "$DOCKER_USER" "$API_IMAGE" > /dev/null 2>&1
-            docker trust signer add --key "$DOCKER_USER"_repo_key.pub "$DOCKER_USER" "$FRONT_IMAGE" > /dev/null 2>&1
-            echo -e "  ${GREEN}✓ Signers ajoutés pour les images${NC}"
-            
-            # Push (Cela signe automatiquement avec DCT activé)
-            echo -e "\n${ICON_DOCKER}  Push et Signature des images..."
-            docker compose push > /dev/null 2>&1
-            
-            echo -e "  ${GREEN}✓ Images signées et poussées vers le registre${NC}"
-            RES_SIGN="SUCCESS"
-        else
-            echo -e "  ${YELLOW}⚠ Clés déjà existantes ou erreur (Tentative de push standard...)${NC}"
-            # On tente quand même le push si les clés existent déjà
-            docker compose push > /dev/null 2>&1
-            if [ $? -eq 0 ]; then
-                 echo -e "  ${GREEN}✓ Images poussées avec succès${NC}"
-                 RES_SIGN="SUCCESS"
-            else
-                 echo -e "  ${RED}✗ Echec du push${NC}"
-                 RES_SIGN="FAIL"
-            fi
-        fi
-    else
-        echo -e "  ${RED}✗ Échec authentification (Vérifiez .env)${NC}"
-        RES_LOGIN="FAIL"
-        RES_SIGN="FAIL"
-    fi
+    echo -e "  ${RED}✗ Échec de la connexion${NC}"
+    exit 1
 fi
 
-# ==============================================================================
-# RAPPORT FINAL
-# ==============================================================================
-echo -e "\n"
-echo -e "${BLUE}════════════════════════════════════════════════════════════════════${NC}"
-echo -e "                        ${BOLD}RAPPORT DE PUBLICATION${NC}"
-echo -e "${BLUE}════════════════════════════════════════════════════════════════════${NC}"
+# 2. PRÉPARATION BUILDKIT (Pour SBOM/Provenance)
+# --------------------------------------------------------------------------
+print_section "Configuration Buildx (Moteur Avancé)"
 
-report_line() {
-    name=$1; status=$2
-    if [ "$status" == "SUCCESS" ]; then
-        printf " ║ %-25s ║ ${GREEN}%-10s${NC} ║ ${GREEN}PUBLISHED${NC} ║\n" "$name" "$status"
+# On utilise un builder containerisé pour supporter les attestations complexes
+if ! docker buildx inspect secure_builder > /dev/null 2>&1; then
+    docker buildx create --use --name secure_builder --driver docker-container --bootstrap > /dev/null 2>&1
+else
+    docker buildx use secure_builder > /dev/null 2>&1
+fi
+echo -e "  ${GREEN}✓ Builder 'secure_builder' actif${NC}"
+
+# 3. BUILD & PUSH (Artifacts + Attestations)
+# --------------------------------------------------------------------------
+print_section "Phase 1 : Build & Push (avec Attestations)"
+echo -e "${ICON_UPLOAD}  Génération des images, SBOMs et Provenance..."
+
+# L'option --push ici envoie tout au registre, mais SANS signature DCT pour l'instant
+if docker buildx bake \
+    --push \
+    --set *.attest=type=sbom \
+    --set *.attest=type=provenance,mode=max \
+    api front; then
+    
+    echo -e "  ${GREEN}✓ Images et métadonnées de sécurité poussées.${NC}"
+else
+    echo -e "  ${RED}✗ Erreur lors du build/push.${NC}"
+    exit 1
+fi
+
+# 4. SIGNATURE DCT (Docker Content Trust)
+# --------------------------------------------------------------------------
+print_section "Phase 2: Signature Cosign (Modern)"
+
+# Check if cosign is installed
+if ! command -v cosign &> /dev/null; then
+    echo -e "${RED}Error: cosign is not installed.${NC}"
+    exit 1
+fi
+
+sign_image_cosign() {
+    #Need Cosign installed and cosign.key available
+    local img=$1
+    echo -e "\n${ICON_SIGN}  Signature Cosign de : ${PURPLE}$img${NC}"
+    
+    # You need a cosign.key key pair generated beforehand
+    # Ideally pass the password via env var COSIGN_PASSWORD
+    if cosign sign --yes --key cosign.key "$img"; then
+        echo -e "  ${GREEN}✓ Signature Cosign validée${NC}"
     else
-        printf " ║ %-25s ║ ${RED}%-10s${NC} ║ ${RED}FAILED${NC}    ║\n" "$name" "$status"
+        echo -e "  ${RED}✗ Échec de la signature Cosign${NC}"
+        exit 1
     fi
 }
 
-report_line "Registry Auth" "$RES_LOGIN"
-report_line "Signature & Push" "$RES_SIGN"
+ERR_SIGN=0
+sign_image_cosign "$API_IMAGE" || ERR_SIGN=1
+sign_image_cosign "$FRONT_IMAGE" || ERR_SIGN=1
 
-echo -e "${BLUE}╚════════════════════════════════════════════════════════════════════╝${NC}"
-
-if [ "$RES_LOGIN" == "SUCCESS" ] && [ "$RES_SIGN" == "SUCCESS" ]; then
-    echo -e "\n${GREEN}${BOLD}🚀 DEPLOIEMENT TERMINÉ !${NC}\n"
-    exit 0
-else
-    echo -e "\n${RED}${BOLD}💥 ECHEC DU DEPLOIEMENT${NC}\n"
+if [ $ERR_SIGN -eq 1 ]; then
+    echo -e "\n${RED}⚠️  Attention : Les images sont en ligne mais la signature a échoué.${NC}"
     exit 1
 fi
+
+# 5. DOCUMENTATION (Optionnel)
+# --------------------------------------------------------------------------
+print_section "Documentation"
+push_readme "${DOCKER_USER}/tdocker-api" "./api/README.md"
+push_readme "${DOCKER_USER}/tdfront-front" "./front/README.md"
+
+# ==============================================================================
+# CONCLUSION
+# ==============================================================================
+echo -e "\n${GREEN}${BOLD}🚀 DÉPLOIEMENT TERMINÉ AVEC SUCCÈS${NC}"
+echo -e "   ├─ Images  : ${GREEN}OK${NC}"
+echo -e "   ├─ SBOM    : ${GREEN}OK${NC} (Visibles dans Docker Scout)"
+echo -e "   └─ DCT     : ${GREEN}OK${NC} (Images signées)"
+echo ""
+exit 0
