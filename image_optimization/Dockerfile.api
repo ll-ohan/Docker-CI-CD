@@ -31,7 +31,7 @@ COPY requirements.txt .
 # Installation des dépendances Python dans un environnement virtuel isolé
 # Création du venv et installation des packages en une seule couche pour réduire la taille
 RUN python -m venv /opt/venv && \
-# Création de l'environnement virtuel Python
+# Création de l'environnement virtuel Python.
     /opt/venv/bin/pip install --upgrade pip && \
 # Mise à jour de pip vers la dernière version
     /opt/venv/bin/pip install -r requirements.txt && \

@@ -16,6 +16,7 @@ Application web full-stack démontrant les pratiques DevSecOps modernes, incluan
 - [Pipeline CI/CD](#pipeline-cicd)
 - [Structure du projet](#structure-du-projet)
 - [Documentation](#documentation)
+- [Difficultés et améliorations](#difficultés-et-améliorations)
 
 ## Vue d'ensemble
 
@@ -472,6 +473,81 @@ Documentation détaillée disponible pour chaque composant :
 - Gestion gracieuse des échecs
 - Analytiques de performance
 - Capacité de déploiement sans interruption
+
+## Difficultés et améliorations
+
+### Défis techniques rencontrés
+
+**Publication et sécurisation des images Docker**
+
+La mise en place d'une chaîne de publication sécurisée a représenté le défi majeur de ce projet, impliquant plusieurs couches de complexité :
+
+1. **Docker Content Trust (DCT)**
+   - Configuration initiale délicate des clés root et repository
+   - Gestion des passphrases de clés dans un environnement CI/CD
+   - Interaction complexe entre `DOCKER_CONTENT_TRUST` et les commandes `docker push`
+   - Problématiques de synchronisation des clés entre environnements locaux et GitHub Actions
+   - Nécessité de comprendre le modèle de délégation TUF (The Update Framework)
+
+2. **Signature cryptographique avec Cosign**
+   - Apprentissage de l'écosystème Sigstore et des concepts de signature sans certificat (keyless)
+   - Génération et gestion sécurisée des paires de clés
+   - Intégration de la signature dans le workflow de publication automatisé
+   - Validation de la chaîne de confiance et vérification des signatures
+   - Compatibilité avec les différentes versions de Cosign entre environnements
+
+3. **Attestations SBOM et Provenance**
+   - Compréhension des spécifications SLSA pour la provenance de build
+   - Configuration de Docker Buildx avec le mode `--provenance=mode=max`
+   - Génération de Software Bill of Materials (SBOM) au format SPDX/CycloneDX
+   - Attachement des attestations aux images multi-architectures
+   - Débogage des erreurs liées aux formats d'attestation
+
+4. **Gestion des secrets et authentification**
+   - Protection des credentials Docker Hub dans GitHub Secrets
+   - Rotation sécurisée des tokens d'accès
+   - Prévention de l'exposition accidentelle de secrets dans les logs
+   - Configuration de `.env` avec validation des variables requises
+   - Isolation des secrets entre environnements de développement et production
+
+5. **Debugging du pipeline de publication**
+   - Interprétation des erreurs cryptiques de Docker Content Trust
+   - Résolution des conflits de tags lors des re-publications
+   - Gestion des timeouts réseau lors de l'upload d'images volumineuses
+   - Vérification de l'intégrité des manifests multi-architectures
+   - Traçabilité des échecs dans les workflows GitHub Actions
+
+### Améliorations futures envisagées
+
+**Sécurité**
+- Implémentation de Notary v2 pour un modèle de confiance plus moderne
+- Ajout de policy enforcement avec Open Policy Agent (OPA)
+- Intégration de runtime security monitoring avec Falco
+- Scan de vulnérabilités en temps réel avec GitHub Advanced Security
+
+**Publication**
+- Migration vers keyless signing avec Sigstore pour éliminer la gestion de clés
+- Automatisation complète de la rotation des clés de signature
+- Publication multi-registry (Docker Hub, GitHub Container Registry, AWS ECR)
+- Cache layer distribution avec registry mirrors
+
+**Opérations**
+- Ajout de métriques Prometheus et dashboards Grafana
+- Implémentation de distributed tracing avec OpenTelemetry
+- Déploiement Kubernetes avec Helm charts
+- Blue-green deployment pour zéro downtime
+
+**Tests**
+- Extension de la couverture de tests à 95%+
+- Ajout de tests d'intégration end-to-end avec Playwright
+- Tests de charge avec K6 ou Locust
+- Tests de sécurité dynamique (DAST) avec OWASP ZAP
+
+**Développement**
+- Environnement de développement containerisé avec devcontainers
+- Hot-reload automatique pour le développement local
+- Documentation interactive avec Swagger UI pour l'API
+- Pre-commit hooks pour validation automatique avant commit
 
 ## Licence
 

@@ -20,7 +20,7 @@ RUN apk update && \
 # --chown: définit nginx comme propriétaire pour éviter les problèmes de permissions
 COPY --chown=nginx:nginx nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copie des fichiers sources du frontend directement dans le répertoire de service
+# Copie des fichiers sources du frontend directement dans le répertoire de service : 
 # Architecture single-stage: pas de stage builder séparé pour simplifier le build
 COPY --chown=nginx:nginx ./src /usr/share/nginx/html
 

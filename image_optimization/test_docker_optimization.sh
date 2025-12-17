@@ -91,7 +91,7 @@ for f in "$DF_API_STD" "$DF_API_OPT" "$DF_FRONT_STD" "$DF_FRONT_OPT"; do
 done
 echo -e "${GREEN}✓ Tous les fichiers sont présents.${NC}\n"
 
-# 2. Construction des images
+# 2. Construction des images.
 echo -e "${BOLD}2. Construction des images (cela peut prendre un moment)...${NC}"
 
 # API
